@@ -19,7 +19,7 @@ namespace Labirynt
 
         private Random rand = new Random();
 
-        public MazeCell[,] Generate(int rows, int cols)
+        public MazeCell[,] Generate(int rows, int cols,double density)
         {
             int gridRows = rows * 2 + 1;
             int gridCols = cols * 2 + 1;
@@ -74,7 +74,7 @@ namespace Labirynt
 
             maze[startR, startC].Type = CellType.Start;
             maze[gridRows - 2, gridCols - 2].Type = CellType.End;
-
+            AddCycles(maze, density);
             return maze;
         }
 
@@ -96,7 +96,19 @@ namespace Labirynt
                     walls.Add((wr, wc));
             }
         }
-
+        public void AddCycles(MazeCell[,] maze, double density)
+        {
+            for (int r = 1; r < maze.GetLength(0) - 1; r++)
+            {
+                for (int c = 1; c < maze.GetLength(1) - 1; c++)
+                {
+                    if (maze[r, c].Type == CellType.Wall && rand.NextDouble() < density)
+                    {
+                        maze[r, c].Type = CellType.Empty;
+                    }
+                }
+            }
+        }
         private bool IsInside(MazeCell[,] maze, int r, int c)
         {
             return r > 0 &&
