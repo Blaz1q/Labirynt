@@ -72,7 +72,7 @@ namespace Labirynt
                 }
             }
 
-            maze[startR, startC].Type = CellType.Start;
+            maze[1, 1].Type = CellType.Start;
             maze[gridRows - 2, gridCols - 2].Type = CellType.End;
             AddCycles(maze, density);
             return maze;

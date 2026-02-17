@@ -210,6 +210,38 @@ namespace Labirynt
             Rows = rows * 2 + 1;
             Cols = cols * 2 + 1;
         }
+        public MazeCell[,] GetMazeCopy()
+        {
+            MazeCell[,] copy = new MazeCell[Rows, Cols];
+            for (int r = 0; r < Rows; r++)
+            {
+                for (int c = 0; c < Cols; c++)
+                {
+                    copy[r, c] = new MazeCell { Type = maze[r, c].Type };
+                }
+            }
+            return copy;
+        }
+
+        // Pobiera aktualną pozycję startu (używa FindStartAndEnd dla pewności)
+        public (int r, int c) GetStartPos()
+        {
+            FindStartAndEnd();
+            return (start[0], start[1]);
+        }
+
+        // Pobiera aktualną pozycję końca
+        public (int r, int c) GetEndPos()
+        {
+            FindStartAndEnd();
+            return (end[0], end[1]);
+        }
+
+        // Metoda do natychmiastowego przerwania algorytmu
+        public void StopSolving()
+        {
+            _cts?.Cancel();
+        }
         protected override void OnMouseDown(MouseEventArgs e)
         {
             int col = e.X / CellSize;

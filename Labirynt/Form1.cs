@@ -46,7 +46,7 @@ namespace Labirynt
 
         private void button4_Click(object sender, EventArgs e) // A*
         {
-            mazeControl1.SolveAlgorithmAsync(new AStarPathfinder());
+            mazeControl1.SolveAlgorithmAsync(new AStarPathfinder(new ManhattanHeuristic()));
         }
 
         private void panel1_Paint(object sender, PaintEventArgs e)
@@ -68,7 +68,8 @@ namespace Labirynt
         {
 
         }
-        private void changeBrush() {
+        private void changeBrush()
+        {
             if (radioButton1.Checked)
             {
                 mazeControl1.UserBrush = MazeControl.CellType.Wall;
@@ -77,7 +78,8 @@ namespace Labirynt
             {
                 mazeControl1.UserBrush = MazeControl.CellType.Start;
             }
-            else {
+            else
+            {
                 mazeControl1.UserBrush = MazeControl.CellType.End;
             }
         }
@@ -94,6 +96,28 @@ namespace Labirynt
         private void radioButton3_CheckedChanged(object sender, EventArgs e)
         {
             this.changeBrush();
+        }
+
+        private async void button6_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV|*.csv" };
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                this.Enabled = false; // Blokada UI na czas testów
+                MazeTester tester = new MazeTester();
+                int rows = int.Parse(RowsBox.Text.Trim());
+                int cols = int.Parse(ColsBox.Text.Trim());
+                double density = double.Parse(densityBox.Text.Trim());
+                await tester.RunAutomatedTests(
+                    rows,
+                    cols,
+                    density,
+                    sfd.FileName
+                );
+
+                this.Enabled = true;
+                MessageBox.Show("Testy (20 powtórzeń na algorytm) zostały zakończone!");
+            }
         }
     }
 }

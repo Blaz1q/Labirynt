@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,135 +8,120 @@ using static Labirynt.MazeControl;
 
 namespace Labirynt
 {
-    public class AStarPathfinder : IPathfinder
+    public class AStarPathfinder : PathfindingBase, IPathfinder
     {
-        private readonly (int dr, int dc)[] directions = { (-1, 0), (1, 0), (0, -1), (0, 1) };
+        private readonly IHeuristic _heuristic;
 
-        public async Task<List<(int r, int c)>> FindPathAsync(
-    MazeCell[,] maze,
-    (int r, int c) start,
-    (int r, int c) end,
-    Action<int, int, CellType>? onStep = null,
-    int delayMs = 15,
-    CancellationToken token = default)
+        // Punkt 2: Mechanizm wyboru heurystyki przez konstruktor
+        public AStarPathfinder(IHeuristic heuristic)
         {
+            _heuristic = heuristic;
+        }
+
+        public async Task<PathfindingResult> FindPathAsync(
+            MazeCell[,] maze,
+            (int r, int c) start,
+            (int r, int c) end,
+            Action<int, int, MazeControl.CellType>? onStep = null,
+            int delayMs = 15,
+            CancellationToken token = default)
+        {
+            // Punkt 16: Ujednolicona walidacja
+            ValidatePoints(maze, start, end);
+
             int rows = maze.GetLength(0);
             int cols = maze.GetLength(1);
             Node[,] nodes = new Node[rows, cols];
-            List<Node> openSet = new();
 
-            // 1. Inicjalizacja węzłów
+            // Punkt 18: Wydajna kolejka priorytetowa (NuGet: .NET 6+ PriorityQueue)
+            var priorityQueue = new PriorityQueue<Node, double>();
+            int visitedCount = 0;
+
             for (int r = 0; r < rows; r++)
             {
                 for (int c = 0; c < cols; c++)
                 {
                     if (maze[r, c].Type == CellType.Wall) continue;
-                    nodes[r, c] = new Node { Row = r, Col = c, Distance = int.MaxValue };
+                    // Poprawka: dystans trzymamy jako double, by uniknąć overflow przy MaxValue
+                    nodes[r, c] = new Node { Row = r, Col = c, Distance = double.MaxValue };
                 }
             }
 
-            // Sprawdzenie czy start i meta nie są na ścianach
-            if (nodes[start.r, start.c] == null || nodes[end.r, end.c] == null)
-            {
-                System.Windows.Forms.MessageBox.Show("Start lub Meta znajduje się na ścianie!");
-                return new List<(int, int)>();
-            }
-
             Node startNode = nodes[start.r, start.c];
-            Node endNode = nodes[end.r, end.c];
-
             startNode.Distance = 0;
-            openSet.Add(startNode);
+
+            // f(n) = g(n) + h(n)
+            double startPriority = 0 + _heuristic.Calculate(start, end);
+            priorityQueue.Enqueue(startNode, startPriority);
+
+            // Punkt 10: Pomiar czasu bez wizualizacji
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
 
             bool targetReached = false;
 
-            while (openSet.Count > 0)
+            while (priorityQueue.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
 
-                // Wybieramy węzeł z najniższym F = G + H
-                Node current = openSet.OrderBy(n => n.Distance + GetHeuristic(n, endNode)).First();
+                Node current = priorityQueue.Dequeue();
 
-                if (current == endNode)
+                if (current.Visited) continue;
+                current.Visited = true;
+                visitedCount++;
+
+                if (current.Row == end.r && current.Col == end.c)
                 {
                     targetReached = true;
                     break;
                 }
 
-                openSet.Remove(current);
-                current.Visited = true;
-
-                if ((current.Row, current.Col) != start && (current.Row, current.Col) != end)
+                // Punkt 10: Obsługa wizualizacji z pauzą stopera
+                if (delayMs > 0 && onStep != null)
                 {
-                    onStep?.Invoke(current.Row, current.Col, CellType.Visited);
+                    sw.Stop();
+                    if ((current.Row, current.Col) != start)
+                        onStep.Invoke(current.Row, current.Col, CellType.Visited);
+
                     await Task.Delay(delayMs, token);
+                    sw.Start();
                 }
 
-                foreach (var (dr, dc) in directions)
+                foreach (var (dr, dc) in Directions)
                 {
                     int nr = current.Row + dr;
                     int nc = current.Col + dc;
 
                     if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+
                     Node neighbor = nodes[nr, nc];
                     if (neighbor == null || neighbor.Visited) continue;
 
-                    int tentativeG = current.Distance + 1;
+                    double tentativeG = current.Distance + 1;
 
                     if (tentativeG < neighbor.Distance)
                     {
                         neighbor.Parent = current;
                         neighbor.Distance = tentativeG;
 
-                        if (!openSet.Contains(neighbor))
-                        {
-                            openSet.Add(neighbor);
-                            if ((nr, nc) != end)
-                                onStep?.Invoke(nr, nc, CellType.Frontier);
-                        }
+                        double fScore = tentativeG + _heuristic.Calculate((nr, nc), end);
+                        priorityQueue.Enqueue(neighbor, fScore);
+
+                        if (delayMs > 0 && (nr, nc) != end)
+                            onStep?.Invoke(nr, nc, CellType.Frontier);
                     }
                 }
             }
 
-            // Diagnostyka zatrzymania
+            sw.Stop();
+
             if (!targetReached)
-            {
-                System.Windows.Forms.MessageBox.Show("Nie znaleziono ścieżki – cel jest odcięty!");
-                return new List<(int, int)>();
-            }
+                return new PathfindingResult(new List<(int, int)>(), visitedCount, sw.Elapsed.TotalMilliseconds);
 
-            return await ReconstructAndDrawPath(endNode, maze, start, end, onStep, token,delayMs);
-        }
+            // Punkt 17: Rekonstrukcja ścieżki (wywołujemy z klasy bazowej, by nie powtarzać kodu)
+            var finalPath = await ReconstructAndDrawPath(nodes[end.r, end.c], start, end, onStep, token, delayMs);
 
-        // Heurystyka: Odległość Manhattan (suma różnic współrzędnych)
-        private int GetHeuristic(Node a, Node b)
-        {
-            return Math.Abs(a.Row - b.Row) + Math.Abs(a.Col - b.Col);
-        }
-
-        private async Task<List<(int r, int c)>> ReconstructAndDrawPath(Node endNode, MazeCell[,] maze, (int r, int c) start, (int r, int c) end, Action<int, int, CellType>? onStep, CancellationToken token, int delayMs = 15)
-        {
-            List<(int r, int c)> path = new();
-            if (endNode == null || endNode.Parent == null) return path;
-
-            Node? curr = endNode;
-            while (curr != null)
-            {
-                path.Add((curr.Row, curr.Col));
-                curr = curr.Parent;
-            }
-            path.Reverse();
-
-            foreach (var (r, c) in path)
-            {
-                token.ThrowIfCancellationRequested();
-                if ((r, c) != start && (r, c) != end)
-                {
-                    onStep?.Invoke(r, c, CellType.Path);
-                    await Task.Delay(delayMs, token);
-                }
-            }
-            return path;
+            return new PathfindingResult(finalPath, visitedCount, sw.Elapsed.TotalMilliseconds);
         }
     }
 }

@@ -7,13 +7,19 @@ using static Labirynt.MazeControl;
 
 namespace Labirynt
 {
+    public record PathfindingResult(
+        List<(int r, int c)> Path,
+        int VisitedCount,
+        double ComputationTimeMs // Czas bez animacji
+    );
+
     public interface IPathfinder
     {
-        Task<List<(int r, int c)>> FindPathAsync(
-            MazeCell[,] maze,
+        Task<PathfindingResult> FindPathAsync(
+            MazeControl.MazeCell[,] maze,
             (int r, int c) start,
             (int r, int c) end,
-            Action<int, int, CellType>? onStep = null,
+            Action<int, int, MazeControl.CellType>? onStep = null,
             int delayMs = 15,
             CancellationToken token = default);
     }

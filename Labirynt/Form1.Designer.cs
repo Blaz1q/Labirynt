@@ -54,6 +54,7 @@
             button1 = new Button();
             label2 = new Label();
             label1 = new Label();
+            button6 = new Button();
             Labirynt.SuspendLayout();
             flowLayoutPanel1.SuspendLayout();
             groupBox1.SuspendLayout();
@@ -106,6 +107,7 @@
             // 
             // panel1
             // 
+            panel1.Controls.Add(button6);
             panel1.Controls.Add(groupBox2);
             panel1.Controls.Add(densityBox);
             panel1.Controls.Add(label6);
@@ -338,6 +340,16 @@
             label1.TabIndex = 1;
             label1.Text = "Wiersze";
             // 
+            // button6
+            // 
+            button6.Location = new Point(3, 478);
+            button6.Name = "button6";
+            button6.Size = new Size(122, 29);
+            button6.TabIndex = 20;
+            button6.Text = "Testuj";
+            button6.UseVisualStyleBackColor = true;
+            button6.Click += button6_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -390,5 +402,6 @@
         private RadioButton radioButton1;
         private RadioButton radioButton2;
         private RadioButton radioButton3;
+        private Button button6;
     }
 }

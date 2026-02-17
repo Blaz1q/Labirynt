@@ -12,7 +12,7 @@ namespace Labirynt
         public int Col;
 
         public Node Parent;
-        public int Distance = int.MaxValue;
+        public double Distance = int.MaxValue;
         public bool Visited = false;
     }
 }
